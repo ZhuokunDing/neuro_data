@@ -17,6 +17,6 @@ services:
       - ./notebooks:/notebooks/local_notebooks
       - /mnt/lab/users/eywalker/notebooks:/notebooks/lab_notes
       - /tmp:/tmp
-      - /mnt/scratch07:/external
+      - /mnt/dj-stor01:/external
       - /mnt/lab/microns/data:/data
       - .:/src/neuro_data
