@@ -475,6 +475,10 @@ class DvModelConfig(ConfigBase, dj.Lookup):
 
 @schema
 class DvScanInfo(dj.Computed):
+    '''
+    The StaticScan primary key here is to make sure the entries here could be inserted back to InputReseponse.
+    The scan inserted here should be a dynamic scan.
+    '''
     definition = """
     -> StaticScan
     -> DvModelConfig
