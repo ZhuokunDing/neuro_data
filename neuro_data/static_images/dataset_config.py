@@ -897,7 +897,7 @@ class MultiDataset(dj.Manual):
             print(
                 f'Dataset already exists in MultiDataset: {existing_dataset.fetch1("KEY")}'
             )
-            return
+            return existing_dataset.fetch1("KEY")
         key = dict(
             group_id=self.next_group_id,
             description="Inserted with MultiDataset: " + description,
