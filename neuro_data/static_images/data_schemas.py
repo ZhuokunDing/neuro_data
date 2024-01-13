@@ -384,6 +384,26 @@ class Preprocessing(dj.Lookup):
                 ]
 
 
+def add_mask(cond, frame):
+    frame_size = frame.T.shape  # frame is height by width
+    radius = float(cond['aperture_r']) * frame_size[0]
+    transition = float(cond['aperture_transition']) * frame_size[0]
+    x_, y_ = float(cond['aperture_x']), float(cond['aperture_y'])
+    sz = frame_size
+    x = np.linspace(-sz[1] / 2, sz[1] / 2, sz[1]) - y_ * sz[0]
+    y = np.linspace(-sz[0] / 2, sz[0] / 2, sz[0]) - x_ * sz[0]
+    print(sz)
+    print(x.shape, y.shape)
+    [X, Y] = np.meshgrid(x, y)
+    rr = np.sqrt(X * X + Y * Y)
+    fxn = lambda r: 0.5 * (1 + np.cos(np.pi * r)) * (r < 1) * (r > 0) + (r < 0)
+    alpha_mask = fxn((rr - radius) / transition + 1)
+    bg = cond['background_value']
+    img = (frame - bg) * alpha_mask.T + bg
+
+    return img
+
+
 def process_frame(preproc_key, frame):
     """
     Helper function that preprocesses a frame
@@ -394,7 +414,14 @@ def process_frame(preproc_key, frame):
     if not frame.shape[0] / imgsize[1] == frame.shape[1] / imgsize[0]:
         log.warning('Image size would change aspect ratio.')
 
-    return cv2.resize(frame, imgsize, interpolation=cv2.INTER_AREA).astype(np.float32)
+    frame = cv2.resize(frame, imgsize, interpolation=cv2.INTER_AREA).astype(np.float32)
+
+    if stimulus.Frame2 & preproc_key:
+        aperture_info = (stimulus.Frame2.proj('aperture_r', 'aperture_x', 'aperture_y', 'aperture_transition',
+                                              'background_value') & preproc_key).fetch1()
+        if float(aperture_info['aperture_r']) < 1:
+            frame = add_mask(aperture_info, frame)
+    return frame
 
 
 @schema
@@ -410,6 +437,7 @@ class Frame(dj.Computed):
     @property
     def key_source(self):
         return stimulus.Condition() * Preprocessing() & ConditionTier()
+
 
     @staticmethod
     def load_frame(key):
@@ -438,6 +466,16 @@ class Frame(dj.Computed):
                     if channel_mapping is not None:
                         image_sub_channels_to_include.append(original_img[:, :, channel_mapping - 1])
                 return np.stack(image_sub_channels_to_include, axis=-1)
+        elif stimulus.Frame2 & key:
+            assert (stimulus.Frame2 & key).fetch1('pre_blank_period') > 0, 'we assume blank periods'
+            frame = (stimulus.StaticImage.Image & (stimulus.Frame2 & key)).fetch1('image')
+
+
+
+            return frame
+
+
+
         else:
             raise KeyError('Cannot find matching stimulus relation')
 
